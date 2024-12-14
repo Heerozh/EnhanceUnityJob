@@ -104,3 +104,13 @@ Return view from array[i * width, (i+1) * width)
 ### async Awaitable JobHandle.WaitComplete()
 
 Allow `await` in an asynchronous function to wait for the job to complete.
+
+## Math
+
+### float3.Slerp
+
+Same as vector3.slerp but with float3 type (burst happy).
+
+### float3.FractalNoise
+
+Simplex fractal noise with float3 type.
