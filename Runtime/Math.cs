@@ -20,15 +20,11 @@ namespace EnhanceJobSystem
         }
 
 
-        public static float FractalNoise(this float3 pos, float persistence, int octaves,
-            float lacunarity,
-            float power, bool ridged)
+        public static float FbmNoise(this float3 pos, float persistence, int octaves,
+            float lacunarity, float power, bool ridged,
+            float amplitude = 0.5f, float frequency = 1.0f)
         {
             float value = 0.0f;
-
-            // Initial values
-            float amplitude = 0.5f;
-            float frequency = 1.0f;
 
             // Loop of octaves
             float maxValue = 0; // Used for normalizing result to 0.0 - 1.0
