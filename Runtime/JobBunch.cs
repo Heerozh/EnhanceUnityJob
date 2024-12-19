@@ -5,35 +5,14 @@ using UnityEngine;
 
 namespace EnhanceJobSystem
 {
-    public static class NativeArrayExtensions
-    {
-        /// <summary>
-        ///  <para>Creates a slice of flatten 2D NativeArray.</para>
-        /// Return view from array[i * width, (i+1) * width).
-        /// </summary>
-        /// <param name="array"></param>
-        /// <param name="i">axis 0 index</param>
-        /// <param name="width">axis 1 length</param>
-        /// <typeparam name="T">NativeArray bittable type</typeparam>
-        /// <returns></returns>
-        public static NativeArray<T> Slice2D<T>(this NativeArray<T> array, int i, int width)
-            where T : struct
-        {
-            // NativeSlice 正在被官方抛弃，因为索引速度很慢
-            return array.GetSubArray(i * width, width);
-            // return NativeArrayUnsafeUtility.ConvertExistingDataToNativeArray(
-            //     slice.GetUnsafePtr(), slice.Length, Allocator.None);
-        }
-    }
-
     public static class JobHandleExtensions
     {
         /// <summary>
         ///  <para>Async way to wait for a job to complete.</para>
-        /// e.g: await job.Schedule().WaitComplete();
+        /// e.g: await job.Schedule().CompleteAsync();
         /// </summary>
         /// <param name="handle"></param>
-        public static async Awaitable WaitComplete(this JobHandle handle)
+        public static async Awaitable CompleteAsync(this JobHandle handle)
         {
 #if UNITY_EDITOR
             handle.Complete();
@@ -52,7 +31,6 @@ namespace EnhanceJobSystem
         }
     }
 
-
     public interface IJobBunch : IJob
     {
         void Slice(int i, int workers);
@@ -68,7 +46,7 @@ namespace EnhanceJobSystem
                 handle.Complete();
         }
 
-        public async Awaitable WaitComplete()
+        public async Awaitable CompleteAsync()
         {
 #if UNITY_EDITOR
             Complete();
@@ -88,17 +66,17 @@ namespace EnhanceJobSystem
         }
     }
 
-    public static class JobDataExtensions
+    public static class JobDataBunchExtensions
     {
         /// <summary>
-        ///  <para>Schedule Parallel job but uses IJobBunch(inherited from IJob) interface.</para>
-        /// `IJobBunch.Slice` method will be called when each job before scheduled.
-        /// method can be written like this:
-        ///  public void Slice(int i, int workers) {
+        ///     <para>Schedule Parallel job but uses IJobBunch(inherited from IJob) interface.</para>
+        ///     `IJobBunch.Slice` method will be called when each job before scheduled.
+        ///     method can be written like this:
+        ///     public void Slice(int i, int workers) {
         ///     result = result.Slice2D(i, result.Length / workers);
         ///     _i = i;
-        /// }
-        /// All your sliced data should add [NativeDisableContainerSafetyRestriction] attribute.
+        ///     }
+        ///     All your sliced data should add [NativeDisableContainerSafetyRestriction] attribute.
         /// </summary>
         /// <param name="jobData">The job(IJob struct) and data to schedule.</param>
         /// <param name="workers">The number of iterations to execute</param>
@@ -106,7 +84,7 @@ namespace EnhanceJobSystem
         /// <typeparam name="T">NativeArray bittable type</typeparam>
         /// <returns></returns>
         public static BunchJobHandle ScheduleBunch<T>(this T jobData, int workers,
-            JobHandle dependsOn = default(JobHandle)) where T : struct, IJobBunch
+            JobHandle dependsOn = default) where T : struct, IJobBunch
         {
             // Dictionary<string, PropertyInfo> arrayNames =
             //     (from prop in jobData.GetType().GetProperties()
@@ -128,5 +106,30 @@ namespace EnhanceJobSystem
 
             return handle;
         }
+
+        /// Schedule a parallel job async, but also adapt to WebGL platform (run job and yield every
+        /// step if in WASM)
+        /// Note: AdaptSchedule cannot use any `AsDeferredJobArray()` array.
+        public static async Awaitable AdaptScheduleBunch<T>(this T jobData, int workers,
+            Awaitable dependsOn = null) where T : struct, IJobBunch
+        {
+            if(dependsOn != null)
+                await dependsOn;
+
+#if UNITY_WEBGL
+            for (var i = 0; i < workers; i++)
+            {
+                var paraJobData = jobData; // shallow copy
+                paraJobData.Slice(i, workers);
+                paraJobData.Execute();
+                await Awaitable.NextFrameAsync();
+            }
+#else
+            await jobData.ScheduleBunch(workers).CompleteAsync();
+#endif
+        }
+
+
     }
+
 }

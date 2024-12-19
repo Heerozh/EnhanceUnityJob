@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "displayName": "Enhance Unity JobSystem",
   "description": "Provides some convenient helper methods,\nsuch as `ScheduleBunch`, etc.",
-  "unity": "2021.2",
+  "unity": "6000.0",
   "documentationUrl": "https://github.com/Heerozh/EnhanceUnityJob",
   "keywords": [
     "enhance",
